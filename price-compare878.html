@@ -1,0 +1,838 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>価格比較ツール｜楽天 vs Amazon</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Bebas+Neue&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0a0a0f;
+    --surface: #13131a;
+    --surface2: #1c1c26;
+    --border: #2a2a3a;
+    --rakuten: #bf0000;
+    --rakuten-glow: rgba(191,0,0,0.3);
+    --amazon: #ff9900;
+    --amazon-glow: rgba(255,153,0,0.3);
+    --text: #e8e8f0;
+    --text-dim: #8888aa;
+    --accent: #6c63ff;
+    --cheaper: #00e676;
+    --expensive: #ff5252;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background grid */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(108,99,255,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(108,99,255,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .container {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 40px 20px;
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Header */
+  header {
+    text-align: center;
+    margin-bottom: 48px;
+  }
+
+  .logo {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: clamp(36px, 8vw, 72px);
+    letter-spacing: 4px;
+    line-height: 1;
+    background: linear-gradient(135deg, var(--rakuten) 0%, #ff6b6b 40%, var(--amazon) 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 8px;
+  }
+
+  .tagline {
+    color: var(--text-dim);
+    font-size: 13px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+  }
+
+  /* Badges */
+  .platform-badges {
+    display: flex;
+    justify-content: center;
+    gap: 12px;
+    margin-top: 16px;
+  }
+
+  .badge {
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .badge-rakuten {
+    background: rgba(191,0,0,0.15);
+    border: 1px solid var(--rakuten);
+    color: #ff6b6b;
+  }
+
+  .badge-amazon {
+    background: rgba(255,153,0,0.12);
+    border: 1px solid var(--amazon);
+    color: var(--amazon);
+  }
+
+  /* Search box */
+  .search-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 32px;
+  }
+
+  .search-label {
+    font-size: 11px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    display: block;
+  }
+
+  .search-row {
+    display: flex;
+    gap: 12px;
+  }
+
+  .search-input {
+    flex: 1;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 14px 18px;
+    color: var(--text);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 15px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+
+  .search-input:focus {
+    border-color: var(--accent);
+  }
+
+  .search-input::placeholder { color: var(--text-dim); }
+
+  .search-btn {
+    background: linear-gradient(135deg, var(--rakuten), var(--amazon));
+    border: none;
+    border-radius: 10px;
+    padding: 14px 28px;
+    color: white;
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 14px;
+    font-weight: 700;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: opacity 0.2s, transform 0.1s;
+  }
+
+  .search-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+  .search-btn:active { transform: translateY(0); }
+  .search-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  /* Status */
+  .status {
+    text-align: center;
+    padding: 20px;
+    color: var(--text-dim);
+    font-size: 13px;
+    display: none;
+  }
+
+  .status.active { display: block; }
+
+  .spinner {
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+    margin-right: 8px;
+    vertical-align: middle;
+  }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* Error */
+  .error-box {
+    background: rgba(255,82,82,0.1);
+    border: 1px solid rgba(255,82,82,0.3);
+    border-radius: 10px;
+    padding: 14px 18px;
+    color: #ff8a80;
+    font-size: 13px;
+    margin-bottom: 20px;
+    display: none;
+  }
+
+  .error-box.active { display: block; }
+
+  /* Summary bar */
+  .summary-bar {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px 24px;
+    display: none;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 24px;
+    flex-wrap: wrap;
+    gap: 12px;
+  }
+
+  .summary-bar.active { display: flex; }
+
+  .summary-stat {
+    text-align: center;
+  }
+
+  .summary-num {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 28px;
+    letter-spacing: 2px;
+    color: var(--text);
+  }
+
+  .summary-desc {
+    font-size: 11px;
+    color: var(--text-dim);
+    letter-spacing: 1px;
+    text-transform: uppercase;
+  }
+
+  .summary-divider {
+    width: 1px;
+    height: 40px;
+    background: var(--border);
+  }
+
+  /* Filter tabs */
+  .filter-tabs {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+    display: none;
+  }
+
+  .filter-tabs.active { display: flex; }
+
+  .tab {
+    padding: 6px 16px;
+    border-radius: 20px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: 1px solid var(--border);
+    background: transparent;
+    color: var(--text-dim);
+    transition: all 0.2s;
+    font-family: 'Noto Sans JP', sans-serif;
+  }
+
+  .sort-select {
+    margin-left: auto;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    color: var(--text-dim);
+    font-family: 'Noto Sans JP', sans-serif;
+    font-size: 12px;
+    padding: 5px 14px;
+    cursor: pointer;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .sort-select:focus { border-color: var(--accent); color: var(--text); }
+
+  .tab.active, .tab:hover {
+    background: var(--surface2);
+    color: var(--text);
+    border-color: var(--accent);
+  }
+
+  /* Results */
+  .results { display: flex; flex-direction: column; gap: 16px; }
+
+  .item-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    overflow: hidden;
+    transition: border-color 0.2s, transform 0.2s;
+    animation: fadeUp 0.3s ease both;
+  }
+
+  .item-card:hover {
+    border-color: rgba(108,99,255,0.4);
+    transform: translateY(-2px);
+  }
+
+  @keyframes fadeUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .item-header {
+    padding: 18px 20px 14px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .item-title {
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.5;
+    margin-bottom: 6px;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+
+  .item-meta {
+    font-size: 11px;
+    color: var(--text-dim);
+  }
+
+  .item-prices {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .price-col {
+    padding: 16px 20px;
+    position: relative;
+  }
+
+  .price-col:first-child {
+    border-right: 1px solid var(--border);
+  }
+
+  .price-col.cheaper {
+    background: rgba(0,230,118,0.04);
+  }
+
+  .price-platform {
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+
+  .price-platform.rakuten { color: #ff6b6b; }
+  .price-platform.amazon { color: var(--amazon); }
+
+  .price-amount {
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 26px;
+    letter-spacing: 1px;
+    color: var(--text);
+  }
+
+  .price-amount.na {
+    font-size: 18px;
+    color: var(--text-dim);
+  }
+
+  .price-sub {
+    font-size: 11px;
+    color: var(--text-dim);
+    margin-top: 2px;
+  }
+
+  .cheaper-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    background: rgba(0,230,118,0.15);
+    border: 1px solid rgba(0,230,118,0.3);
+    color: var(--cheaper);
+    border-radius: 20px;
+    padding: 2px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    margin-top: 6px;
+  }
+
+  .diff-bar {
+    padding: 10px 20px;
+    background: var(--surface2);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 12px;
+  }
+
+  .diff-label { color: var(--text-dim); }
+
+  .diff-value {
+    font-weight: 700;
+    font-family: 'Bebas Neue', sans-serif;
+    font-size: 16px;
+    letter-spacing: 1px;
+  }
+
+  .diff-value.rakuten-cheaper { color: #ff6b6b; }
+  .diff-value.amazon-cheaper { color: var(--amazon); }
+
+  .item-links {
+    padding: 10px 20px;
+    display: flex;
+    gap: 10px;
+    border-top: 1px solid var(--border);
+  }
+
+  .item-link {
+    font-size: 11px;
+    padding: 5px 14px;
+    border-radius: 6px;
+    text-decoration: none;
+    font-weight: 500;
+    transition: opacity 0.2s;
+  }
+
+  .item-link:hover { opacity: 0.8; }
+
+  .item-link.rakuten {
+    background: rgba(191,0,0,0.15);
+    color: #ff6b6b;
+    border: 1px solid rgba(191,0,0,0.3);
+  }
+
+  .item-link.amazon {
+    background: rgba(255,153,0,0.12);
+    color: var(--amazon);
+    border: 1px solid rgba(255,153,0,0.3);
+  }
+
+  /* Empty state */
+  .empty {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--text-dim);
+    display: none;
+  }
+
+  .empty.active { display: block; }
+  .empty-icon { font-size: 48px; margin-bottom: 12px; }
+  .empty-text { font-size: 14px; }
+
+  /* Footer note */
+  .footer-note {
+    text-align: center;
+    margin-top: 48px;
+    font-size: 11px;
+    color: var(--text-dim);
+    line-height: 1.8;
+  }
+
+  @media (max-width: 500px) {
+    .search-row { flex-direction: column; }
+    .item-prices { grid-template-columns: 1fr; }
+    .price-col:first-child { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+</style>
+</head>
+<body>
+<div class="container">
+
+  <header>
+    <div class="logo">PRICE COMPARE</div>
+    <div class="tagline">楽天市場 vs Amazon — リアルタイム価格比較</div>
+    <div class="platform-badges">
+      <span class="badge badge-rakuten">楽天市場</span>
+      <span class="badge badge-amazon">Amazon via Keepa</span>
+    </div>
+  </header>
+
+  <div class="search-card">
+    <span class="search-label">商品名またはキーワードを入力</span>
+    <div class="search-row">
+      <input type="text" class="search-input" id="searchInput" placeholder="例：ルンバ、ダイソン、レコルト..." />
+      <button class="search-btn" id="searchBtn" onclick="doSearch()">比較する</button>
+    </div>
+  </div>
+
+  <div class="error-box" id="errorBox"></div>
+
+  <div class="status" id="status">
+    <span class="spinner"></span>楽天市場とAmazonを検索中...
+  </div>
+
+  <div class="summary-bar" id="summaryBar">
+    <div class="summary-stat">
+      <div class="summary-num" id="totalCount">0</div>
+      <div class="summary-desc">件取得</div>
+    </div>
+    <div class="summary-divider"></div>
+    <div class="summary-stat">
+      <div class="summary-num" id="diffCount">0</div>
+      <div class="summary-desc">価格差あり</div>
+    </div>
+    <div class="summary-divider"></div>
+    <div class="summary-stat">
+      <div class="summary-num" id="rakutenWins">0</div>
+      <div class="summary-desc">楽天が安い</div>
+    </div>
+    <div class="summary-divider"></div>
+    <div class="summary-stat">
+      <div class="summary-num" id="amazonWins">0</div>
+      <div class="summary-desc">Amazonが安い</div>
+    </div>
+  </div>
+
+  <div class="filter-tabs" id="filterTabs">
+    <button class="tab" onclick="setFilter('all', this)">すべて</button>
+    <button class="tab" onclick="setFilter('diff', this)">価格差あり</button>
+    <button class="tab active" onclick="setFilter('rakuten', this)">楽天が安い</button>
+    <button class="tab" onclick="setFilter('amazon', this)">Amazonが安い</button>
+    <select class="sort-select" id="sortSelect" onchange="setSort(this.value)">
+      <option value="diff_desc">価格差が大きい順</option>
+      <option value="diff_asc">価格差が小さい順</option>
+      <option value="pct_desc">割引率が高い順</option>
+      <option value="rakuten_asc">楽天価格が安い順</option>
+    </select>
+  </div>
+
+  <div class="results" id="results"></div>
+
+  <div class="empty" id="empty">
+    <div class="empty-icon">🔍</div>
+    <div class="empty-text">該当する商品が見つかりませんでした</div>
+  </div>
+
+  <div class="footer-note">
+    楽天市場: Rakuten商品検索API ／ Amazon: Keepa API<br>
+    価格は取得時点のものです。実際の価格はサイトでご確認ください。
+  </div>
+
+</div>
+
+<script>
+const RAKUTEN_APP_ID = '4ec4d3e2-d775-45bf-9f2b-3432e5790703';
+const RAKUTEN_ACCESS_KEY = 'pk_USqf34MQodi7bM32G4QMjJPYxovmz5FAXip5pp3CKFY';
+const KEEPA_API_KEY = '6cgnun3ks02c2gis3tc3eot9hvre428jibnu9lvm5d6e4hudta28uqukgvl0f1ok';
+
+let allItems = [];
+let currentFilter = 'rakuten';
+let currentSort = 'diff_desc';
+
+document.getElementById('searchInput').addEventListener('keydown', e => {
+  if (e.key === 'Enter') doSearch();
+});
+
+function setFilter(type, btn) {
+  currentFilter = type;
+  document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+  btn.classList.add('active');
+  renderItems();
+}
+
+function setSort(val) {
+  currentSort = val;
+  renderItems();
+}
+
+async function doSearch() {
+  const keyword = document.getElementById('searchInput').value.trim();
+  if (!keyword) return;
+
+  setStatus(true);
+  setError('');
+  document.getElementById('summaryBar').classList.remove('active');
+  document.getElementById('filterTabs').classList.remove('active');
+  document.getElementById('results').innerHTML = '';
+  document.getElementById('empty').classList.remove('active');
+  document.getElementById('searchBtn').disabled = true;
+
+  try {
+    const [rakutenItems, keepaItems] = await Promise.allSettled([
+      fetchRakuten(keyword),
+      fetchKeepa(keyword)
+    ]);
+
+    const rItems = rakutenItems.status === 'fulfilled' ? rakutenItems.value : [];
+    const kItems = keepaItems.status === 'fulfilled' ? keepaItems.value : [];
+
+    if (rakutenItems.status === 'rejected') {
+      console.warn('楽天API エラー:', rakutenItems.reason);
+    }
+    if (keepaItems.status === 'rejected') {
+      console.warn('Keepa API エラー:', keepaItems.reason);
+    }
+
+    allItems = mergeResults(rItems, kItems);
+
+    if (allItems.length === 0) {
+      document.getElementById('empty').classList.add('active');
+    } else {
+      updateSummary();
+      renderItems();
+      document.getElementById('summaryBar').classList.add('active');
+      document.getElementById('filterTabs').classList.add('active');
+    }
+
+  } catch (e) {
+    setError('検索中にエラーが発生しました: ' + e.message);
+  } finally {
+    setStatus(false);
+    document.getElementById('searchBtn').disabled = false;
+  }
+}
+
+async function fetchRakuten(keyword) {
+  const url = `https://script.google.com/macros/s/AKfycbykNeHKDWo2dCBqy9l_ncsUoQVSUEcikfEwK6-Pvh8kEx18ZhkvwGAaCMG8xBT1WWrW2Q/exec?type=rakuten&keyword=${encodeURIComponent(keyword)}`;
+  const res = await fetch(url);
+  if (!res.ok) {
+    const errText = await res.text().catch(() => '');
+    throw new Error('楽天API HTTPエラー: ' + res.status + ' ' + errText.slice(0, 200));
+  }
+  const json = await res.json();
+  if (json.status !== 200) throw new Error('楽天API: ' + JSON.stringify(json.body));
+  const data = json.body;
+  if (data.error) throw new Error('楽天API: ' + (data.error_description || data.error));
+  if (data.errors) throw new Error('楽天API: ' + JSON.stringify(data.errors));
+  return (data.Items || []).map(item => ({
+    name: item.itemName,
+    rakutenPrice: item.itemPrice,
+    rakutenUrl: item.itemUrl,
+    janCode: (item.itemCode || '').split(':')[1] || null,
+    imageUrl: item.mediumImageUrls?.[0] || null
+  }));
+}
+
+async function fetchKeepa(keyword) {
+  const url = `https://script.google.com/macros/s/AKfycbykNeHKDWo2dCBqy9l_ncsUoQVSUEcikfEwK6-Pvh8kEx18ZhkvwGAaCMG8xBT1WWrW2Q/exec?type=keepa&keyword=${encodeURIComponent(keyword)}`;
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('Keepa API HTTPエラー: ' + res.status);
+  const json = await res.json();
+  if (!json.products) return [];
+  return json.products.map(p => ({
+    asin: p.asin,
+    name: p.name,
+    amazonPrice: p.amazonPrice,
+    amazonUrl: p.amazonUrl
+  }));
+}
+
+function mergeResults(rItems, kItems) {
+  const merged = [];
+
+  // 楽天商品をベースにKeepaとマッチング（商品名の類似で）
+  for (const r of rItems) {
+    const rName = normalize(r.name);
+    let bestMatch = null;
+    let bestScore = 0;
+
+    for (const k of kItems) {
+      const kName = normalize(k.name);
+      const score = similarity(rName, kName);
+      if (score > bestScore && score > 0.25) {
+        bestScore = score;
+        bestMatch = k;
+      }
+    }
+
+    merged.push({
+      name: r.name,
+      rakutenPrice: r.rakutenPrice,
+      rakutenUrl: r.rakutenUrl,
+      amazonPrice: bestMatch?.amazonPrice || null,
+      amazonUrl: bestMatch?.amazonUrl || null,
+      matchScore: bestScore
+    });
+  }
+
+  // Keepaのみの商品も追加
+  for (const k of kItems) {
+    const alreadyMatched = merged.some(m => m.amazonUrl === k.amazonUrl);
+    if (!alreadyMatched && k.amazonPrice) {
+      merged.push({
+        name: k.name,
+        rakutenPrice: null,
+        rakutenUrl: null,
+        amazonPrice: k.amazonPrice,
+        amazonUrl: k.amazonUrl,
+        matchScore: 0
+      });
+    }
+  }
+
+  return merged.filter(m => m.rakutenPrice || m.amazonPrice);
+}
+
+function normalize(str) {
+  return (str || '')
+    .toLowerCase()
+    .replace(/[　 \t]/g, ' ')
+    .replace(/[！-～]/g, s => String.fromCharCode(s.charCodeAt(0) - 0xFEE0))
+    .replace(/[^a-z0-9ぁ-んァ-ン一-龯]/g, ' ')
+    .trim();
+}
+
+function similarity(a, b) {
+  const wordsA = new Set(a.split(/\s+/).filter(w => w.length > 1));
+  const wordsB = new Set(b.split(/\s+/).filter(w => w.length > 1));
+  if (wordsA.size === 0 || wordsB.size === 0) return 0;
+  let common = 0;
+  for (const w of wordsA) if (wordsB.has(w)) common++;
+  return common / Math.max(wordsA.size, wordsB.size);
+}
+
+function updateSummary() {
+  const withDiff = allItems.filter(i => i.rakutenPrice && i.amazonPrice);
+  const rakutenWins = withDiff.filter(i => i.rakutenPrice < i.amazonPrice).length;
+  const amazonWins = withDiff.filter(i => i.amazonPrice < i.rakutenPrice).length;
+
+  document.getElementById('totalCount').textContent = allItems.length;
+  document.getElementById('diffCount').textContent = withDiff.length;
+  document.getElementById('rakutenWins').textContent = rakutenWins;
+  document.getElementById('amazonWins').textContent = amazonWins;
+}
+
+function renderItems() {
+  const container = document.getElementById('results');
+  container.innerHTML = '';
+
+  let items = allItems;
+
+  if (currentFilter === 'diff') {
+    items = items.filter(i => i.rakutenPrice && i.amazonPrice && i.rakutenPrice !== i.amazonPrice);
+  } else if (currentFilter === 'rakuten') {
+    items = items.filter(i => i.rakutenPrice && i.amazonPrice && i.rakutenPrice < i.amazonPrice);
+  } else if (currentFilter === 'amazon') {
+    items = items.filter(i => i.rakutenPrice && i.amazonPrice && i.amazonPrice < i.rakutenPrice);
+  }
+
+  // ソート
+  items.sort((a, b) => {
+    const diffA = (a.rakutenPrice && a.amazonPrice) ? Math.abs(a.rakutenPrice - a.amazonPrice) : 0;
+    const diffB = (b.rakutenPrice && b.amazonPrice) ? Math.abs(b.rakutenPrice - b.amazonPrice) : 0;
+    const pctA = (a.amazonPrice && a.amazonPrice > 0) ? diffA / a.amazonPrice : 0;
+    const pctB = (b.amazonPrice && b.amazonPrice > 0) ? diffB / b.amazonPrice : 0;
+    if (currentSort === 'diff_desc') return diffB - diffA;
+    if (currentSort === 'diff_asc') return diffA - diffB;
+    if (currentSort === 'pct_desc') return pctB - pctA;
+    if (currentSort === 'rakuten_asc') return (a.rakutenPrice || 999999) - (b.rakutenPrice || 999999);
+    return 0;
+  });
+
+  if (items.length === 0) {
+    document.getElementById('empty').classList.add('active');
+    return;
+  }
+  document.getElementById('empty').classList.remove('active');
+
+  items.forEach((item, i) => {
+    const card = buildCard(item, i);
+    container.appendChild(card);
+  });
+}
+
+function buildCard(item, index) {
+  const card = document.createElement('div');
+  card.className = 'item-card';
+  card.style.animationDelay = (index * 0.04) + 's';
+
+  const hasBoth = item.rakutenPrice && item.amazonPrice;
+  const rakutenCheaper = hasBoth && item.rakutenPrice < item.amazonPrice;
+  const amazonCheaper = hasBoth && item.amazonPrice < item.rakutenPrice;
+  const diff = hasBoth ? Math.abs(item.rakutenPrice - item.amazonPrice) : null;
+  const diffPct = hasBoth ? Math.round((diff / Math.max(item.rakutenPrice, item.amazonPrice)) * 100) : null;
+
+  const shortName = item.name.length > 80 ? item.name.slice(0, 80) + '…' : item.name;
+
+  card.innerHTML = `
+    <div class="item-header">
+      <div class="item-title">${escHtml(shortName)}</div>
+    </div>
+    <div class="item-prices">
+      <div class="price-col ${rakutenCheaper ? 'cheaper' : ''}">
+        <div class="price-platform rakuten">楽天市場</div>
+        ${item.rakutenPrice
+          ? `<div class="price-amount">¥${item.rakutenPrice.toLocaleString()}</div>
+             ${rakutenCheaper ? '<div class="cheaper-badge">✓ 安い</div>' : ''}`
+          : '<div class="price-amount na">取得不可</div>'
+        }
+      </div>
+      <div class="price-col ${amazonCheaper ? 'cheaper' : ''}">
+        <div class="price-platform amazon">Amazon</div>
+        ${item.amazonPrice
+          ? `<div class="price-amount">¥${item.amazonPrice.toLocaleString()}</div>
+             ${amazonCheaper ? '<div class="cheaper-badge">✓ 安い</div>' : ''}`
+          : '<div class="price-amount na">取得不可</div>'
+        }
+      </div>
+    </div>
+    ${hasBoth && diff > 0 ? `
+    <div class="diff-bar">
+      <span class="diff-label">価格差</span>
+      <span class="diff-value ${rakutenCheaper ? 'rakuten-cheaper' : 'amazon-cheaper'}">
+        ¥${diff.toLocaleString()} (${diffPct}%差)
+      </span>
+    </div>` : ''}
+    <div class="item-links">
+      ${item.rakutenUrl ? `<a href="${item.rakutenUrl}" target="_blank" class="item-link rakuten">楽天で見る →</a>` : ''}
+      ${item.amazonUrl ? `<a href="${item.amazonUrl}" target="_blank" class="item-link amazon">Amazonで見る →</a>` : ''}
+    </div>
+  `;
+  return card;
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function setStatus(active) {
+  document.getElementById('status').classList.toggle('active', active);
+}
+
+function setError(msg) {
+  const box = document.getElementById('errorBox');
+  box.textContent = msg;
+  box.classList.toggle('active', !!msg);
+}
+</script>
+</body>
+</html>
